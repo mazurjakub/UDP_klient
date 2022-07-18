@@ -68,20 +68,28 @@ namespace UDP_klient
             }
 
         client:
-            UDPClient.Close();
             recieve.Abort();
+            
+            
             while (true)
             {
-                Console.WriteLine("Connecting to " + secondClientIP + ":" + secondClientPort);
-                IPEndPoint secondClient = new IPEndPoint(IPAddress.Parse(secondClientIP), int.Parse(secondClientPort));
-                UDPClient.Connect(secondClient);
+                try
+                {
+                    Console.WriteLine("Connecting to " + secondClientIP + ":" + secondClientPort);
+                    IPEndPoint secondClient = new IPEndPoint(IPAddress.Parse(secondClientIP), int.Parse(secondClientPort));
+                    UDPClient.Connect(secondClient);
 
-                Thread.Sleep(100);
+                    Thread.Sleep(100);
 
-                SendDataToServer("T magorew");
+                    SendDataToServer("T magorew");
 
 
-                RecieveDataFromEP(secondClient);
+                    RecieveDataFromEP(secondClient);
+                }
+                catch(Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
 
 
 
@@ -192,6 +200,7 @@ namespace UDP_klient
             }
             catch (Exception ex)
             {
+                Console.WriteLine(ex.Message);
             }
             return retVal;
         }
