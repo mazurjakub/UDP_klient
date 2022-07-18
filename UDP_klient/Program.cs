@@ -13,6 +13,11 @@ namespace UDP_klient
         public static UdpClient UDPClient = new UdpClient();
         public static Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 
+        public static bool hasSecondClient = false;
+        public static string secondClientIP;
+        public static string secondClientPort;
+
+
         static void Main(string[] args)
         {
             UDPClient.AllowNatTraversal(true);
@@ -26,14 +31,28 @@ namespace UDP_klient
 
             string key = null;
 
+        server:
             while (true)
             {
                 
                 // send data
                 if (key == null)
                 {
-                    Console.WriteLine("Zadej klic v hodnotach od 0-999 pro pripojeni ke klientovi");
+                reading:
+                    Console.WriteLine("Zadej klic v hodnotach od 1-999 pro pripojeni ke klientovi");
                     key = Console.ReadLine();
+
+                    if (!IsDigitsOnly(key))
+                    {
+                        Console.WriteLine("Klic musi obsahovat pouze cislice");
+                        goto reading;
+                    }
+
+                    if (int.Parse(key) < 1 || int.Parse(key) > 999)
+                    {
+                        Console.WriteLine("Zadana spatna hodnota klice");
+                        goto reading;
+                    }
                     SendDataToServer(key);
                     Console.WriteLine("\n");
                 }
@@ -44,6 +63,17 @@ namespace UDP_klient
                     SendDataToServer(key);
                     Console.WriteLine("\n");
                 }
+
+                if (hasSecondClient) goto client;
+
+            }
+
+        client:
+            while (true)
+            {
+                Console.WriteLine("Connecting to " + secondClientIP + ":" + secondClientPort);
+                goto server;
+
             }
         }
 
@@ -62,6 +92,7 @@ namespace UDP_klient
             }
             
         }
+
 
         public static void SendDataToServer(int dataToSend)
         {
@@ -100,9 +131,59 @@ namespace UDP_klient
                 Console.WriteLine("Prichozi zprava z IP: " + endPoint.Address.ToString() + " Port: " + endPoint.Port.ToString());
                 Console.WriteLine("Obsah zpravy: " + request);
                 Console.WriteLine("\n");
+
+                // If server sends IP address, initiate connection to that IP
+                if (IsIPAddress(request) && !hasSecondClient)
+                {
+                    secondClientIP = request;
+                    hasSecondClient = true;
+                    recv = 0;
+                    receivedData = null;
+
+                    receivedData = UDPClient.Receive(ref endPoint);
+
+                    foreach (byte b in receivedData)
+                    {
+                        if (b != 0)
+                        {
+                            recv++;
+                        }
+                    }
+
+                    request = Encoding.UTF8.GetString(receivedData, 0, recv);
+
+                    secondClientPort = request;
+                }
             }
         }
 
+        // From https://stackoverflow.com/questions/7461080/fastest-way-to-check-if-string-contains-only-digits-in-c-sharp
+        public static bool IsDigitsOnly(string str)
+        {
+            foreach (char c in str)
+            {
+                if (c < '0' || c > '9')
+                    return false;
+            }
+
+            return true;
+        }
+
+        //From https://morgantechspace.com/2016/01/check-string-is-ip-address-in-c-sharp.html
+        public static bool IsIPAddress(string ipAddress)
+        {
+            bool retVal = false;
+
+            try
+            {
+                IPAddress address;
+                retVal = IPAddress.TryParse(ipAddress, out address);
+            }
+            catch (Exception ex)
+            {
+            }
+            return retVal;
+        }
 
         // From http://stackoverflow.com/questions/6803073/get-local-ip-address
         public string GetLocalIp()
