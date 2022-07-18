@@ -32,9 +32,10 @@ namespace UDP_klient
             string key = null;
 
         server:
+            UDPClient.Connect(ServerEndPoint);
             while (true)
             {
-                
+                if (hasSecondClient) goto client;
                 // send data
                 if (key == null)
                 {
@@ -64,15 +65,25 @@ namespace UDP_klient
                     Console.WriteLine("\n");
                 }
 
-                if (hasSecondClient) goto client;
-
             }
 
         client:
+            UDPClient.Close();
+            recieve.Abort();
             while (true)
             {
                 Console.WriteLine("Connecting to " + secondClientIP + ":" + secondClientPort);
-                goto server;
+                IPEndPoint secondClient = new IPEndPoint(IPAddress.Parse(secondClientIP), int.Parse(secondClientPort));
+                UDPClient.Connect(secondClient);
+
+                Thread.Sleep(100);
+
+                SendDataToServer("T magorew");
+
+
+                RecieveDataFromEP(secondClient);
+
+
 
             }
         }
