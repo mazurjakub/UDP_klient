@@ -99,6 +99,7 @@ namespace UDP_klient
 
                 Console.WriteLine("Prichozi zprava z IP: " + endPoint.Address.ToString() + " Port: " + endPoint.Port.ToString());
                 Console.WriteLine("Obsah zpravy: " + request);
+                Console.WriteLine("\n");
             }
         }
 

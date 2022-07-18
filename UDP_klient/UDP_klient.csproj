@@ -48,9 +48,14 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="bin\Debug\UDP_klient.exe.config" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="UDP_klient.exe" />
+    <Content Include="bin\Debug\UDP_klient.exe" />
+    <Content Include="bin\Debug\UDP_klient.pdb" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="bin\Release\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
