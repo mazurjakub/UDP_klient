@@ -29,7 +29,8 @@ namespace UDP_klient
             Thread recieve = new Thread(() => RecieveDataFromEP(ServerEndPoint));
             recieve.Start();
 
-            string key = null;
+            string key, message = null;
+
 
         server:
             UDPClient.Connect(ServerEndPoint);
@@ -69,22 +70,19 @@ namespace UDP_klient
 
         client:
             recieve.Abort();
-            
-            
+            Thread.Sleep(100);
+            IPEndPoint secondClient = new IPEndPoint(IPAddress.Parse(secondClientIP), int.Parse(secondClientPort));
+            UDPClient.Connect(secondClient);
+            Thread thread = new Thread(() => RecieveDataFromEP(secondClient));
+
             while (true)
             {
                 try
                 {
                     Console.WriteLine("Connecting to " + secondClientIP + ":" + secondClientPort);
-                    IPEndPoint secondClient = new IPEndPoint(IPAddress.Parse(secondClientIP), int.Parse(secondClientPort));
-                    UDPClient.Connect(secondClient);
+                    message = Console.ReadLine();
+                    SendDataToServer(message);
 
-                    Thread.Sleep(100);
-
-                    SendDataToServer("T magorew");
-
-
-                    RecieveDataFromEP(secondClient);
                 }
                 catch(Exception ex)
                 {
