@@ -29,7 +29,8 @@ namespace UDP_klient
             Thread recieve = new Thread(() => RecieveDataFromEP(ServerEndPoint));
             recieve.Start();
 
-            string key, message = null;
+            string key = null;
+            string message = null;
 
 
         server:
