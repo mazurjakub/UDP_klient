@@ -10,7 +10,8 @@ namespace UDP_klient
     public class Program
     {
         public static IPEndPoint ServerEndPoint = new IPEndPoint(IPAddress.Parse("3.143.208.24"), 1700);
-        public static UdpClient UDPClient = new UdpClient();
+        public static UdpClient server = new UdpClient();
+        public static UdpClient connectedClient = new UdpClient();
         public static Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 
         public static bool hasSecondClient = false;
@@ -20,13 +21,13 @@ namespace UDP_klient
 
         static void Main(string[] args)
         {
-            UDPClient.AllowNatTraversal(true);
-            UDPClient.Client.SetIPProtectionLevel(IPProtectionLevel.Unrestricted);
-            UDPClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            UDPClient.Connect(ServerEndPoint);
+            server.AllowNatTraversal(true);
+            server.Client.SetIPProtectionLevel(IPProtectionLevel.Unrestricted);
+            server.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            server.Connect(ServerEndPoint);
 
             //Start recieving data from server
-            Thread recieve = new Thread(() => RecieveDataFromEP(ServerEndPoint));
+            Thread recieve = new Thread(() => RecieveDataFromEP(ServerEndPoint, server));
             recieve.Start();
 
             string key = null;
@@ -34,7 +35,7 @@ namespace UDP_klient
 
 
         server:
-            UDPClient.Connect(ServerEndPoint);
+            //server.Connect(ServerEndPoint);
             while (true)
             {
                 if (hasSecondClient) goto client;
@@ -56,14 +57,14 @@ namespace UDP_klient
                         Console.WriteLine("Zadana spatna hodnota klice");
                         goto reading;
                     }
-                    SendDataToServer(key);
+                    SendDataToServer(key, server);
                     Console.WriteLine("\n");
                 }
                 else
                 {
                     Console.WriteLine("Pro vymazani ze serveru zadejte '0'\n");
                     key = Console.ReadLine();
-                    SendDataToServer(key);
+                    SendDataToServer(key, server);
                     Console.WriteLine("\n");
                 }
 
@@ -72,17 +73,24 @@ namespace UDP_klient
         client:
             recieve.Abort();
             Thread.Sleep(100);
-            IPEndPoint secondClient = new IPEndPoint(IPAddress.Parse(secondClientIP), int.Parse(secondClientPort));
-            UDPClient.Connect(secondClient);
-            Thread thread = new Thread(() => RecieveDataFromEP(secondClient));
+            IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Parse(secondClientIP), int.Parse(secondClientPort));
 
+            connectedClient.AllowNatTraversal(true);
+            connectedClient.Client.SetIPProtectionLevel(IPProtectionLevel.Unrestricted);
+            connectedClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            connectedClient.Connect(clientEndPoint);
+
+            Thread thread = new Thread(() => RecieveDataFromEP(clientEndPoint, connectedClient));
+            thread.Start();
+
+            Console.WriteLine("Connecting to " + server.Client.RemoteEndPoint.ToString());
             while (true)
             {
                 try
                 {
-                    Console.WriteLine("Connecting to " + secondClientIP + ":" + secondClientPort);
+                    
                     message = Console.ReadLine();
-                    SendDataToServer(message);
+                    SendDataToServer(message, connectedClient);
 
                 }
                 catch(Exception ex)
@@ -96,13 +104,13 @@ namespace UDP_klient
         }
 
         //Sends string to connected server (ServerEndPoint)
-        public static void SendDataToServer(string dataToSend)
+        public static void SendDataToServer(string dataToSend, UdpClient receiver)
         {
             try
             {
                 int byteCount = Encoding.ASCII.GetByteCount(dataToSend);
                 byte[] sendData = Encoding.ASCII.GetBytes(dataToSend);
-                UDPClient.Send(sendData, byteCount);
+                receiver.Send(sendData, byteCount);
             }
             catch(Exception e)
             {
@@ -117,7 +125,7 @@ namespace UDP_klient
             try
             {
                 byte[] sendData = BitConverter.GetBytes(dataToSend);
-                UDPClient.Send(sendData, sendData.Length);
+                server.Send(sendData, sendData.Length);
             }
             catch (Exception e)
             {
@@ -126,25 +134,18 @@ namespace UDP_klient
 
         }
 
-        public static void RecieveDataFromEP(IPEndPoint endPoint)
+        public static void RecieveDataFromEP(IPEndPoint endPoint, UdpClient sender)
         {
             while (true)
             {
                 byte[] receivedData;
-                int recv = 0;
-                receivedData = UDPClient.Receive(ref endPoint);
+                receivedData = sender.Receive(ref endPoint);
 
-                foreach (byte b in receivedData)
-                {
-                    if (b != 0)
-                    {
-                        recv++;
-                    }
-                }
 
-                string request = Encoding.UTF8.GetString(receivedData, 0, recv);
 
-                Thread.Sleep(100);
+                string request = Encoding.UTF8.GetString(receivedData);
+
+                Thread.Sleep(1000);
 
                 Console.WriteLine("Prichozi zprava z IP: " + endPoint.Address.ToString() + " Port: " + endPoint.Port.ToString());
                 Console.WriteLine("Obsah zpravy: " + request);
@@ -155,20 +156,13 @@ namespace UDP_klient
                 {
                     secondClientIP = request;
                     hasSecondClient = true;
-                    recv = 0;
                     receivedData = null;
 
-                    receivedData = UDPClient.Receive(ref endPoint);
+                    receivedData = server.Receive(ref endPoint);
+                    request = Encoding.UTF8.GetString(receivedData);
 
-                    foreach (byte b in receivedData)
-                    {
-                        if (b != 0)
-                        {
-                            recv++;
-                        }
-                    }
-
-                    request = Encoding.UTF8.GetString(receivedData, 0, recv);
+                    Console.WriteLine("Prichozi zprava z IP: " + endPoint.Address.ToString() + " Port: " + endPoint.Port.ToString());
+                    Console.WriteLine("Obsah zpravy: " + request);
 
                     secondClientPort = request;
                 }
