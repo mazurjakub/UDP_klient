@@ -27,8 +27,9 @@ namespace UDP_klient
             server.Connect(ServerEndPoint);
 
             //Start recieving data from server
-            Thread recieve = new Thread(() => RecieveDataFromEP(ServerEndPoint, server));
-            recieve.Start();
+            Thread ThreadListen = new Thread(() => RecieveDataFromEP(ServerEndPoint, server));
+            ThreadListen.IsBackground = true;
+            ThreadListen.Start();
 
             string key = null;
             string message = null;
@@ -71,7 +72,7 @@ namespace UDP_klient
             }
 
         client:
-            recieve.Abort();
+            
             Thread.Sleep(100);
             IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Parse(secondClientIP), int.Parse(secondClientPort));
 
@@ -80,10 +81,11 @@ namespace UDP_klient
             connectedClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             connectedClient.Connect(clientEndPoint);
 
+            hasSecondClient = false;
             Thread thread = new Thread(() => RecieveDataFromEP(clientEndPoint, connectedClient));
             thread.Start();
 
-            Console.WriteLine("Connecting to " + server.Client.RemoteEndPoint.ToString());
+            Console.WriteLine("Connecting to " + connectedClient.Client.RemoteEndPoint.ToString());
             while (true)
             {
                 try
@@ -136,16 +138,16 @@ namespace UDP_klient
 
         public static void RecieveDataFromEP(IPEndPoint endPoint, UdpClient sender)
         {
-            while (true)
+            while (!hasSecondClient)
             {
                 byte[] receivedData;
+
+                Console.WriteLine("Posloucham na: " + endPoint.Address.ToString() + " Port: " + endPoint.Port.ToString());
                 receivedData = sender.Receive(ref endPoint);
-
-
 
                 string request = Encoding.UTF8.GetString(receivedData);
 
-                Thread.Sleep(1000);
+                Thread.Sleep(100);
 
                 Console.WriteLine("Prichozi zprava z IP: " + endPoint.Address.ToString() + " Port: " + endPoint.Port.ToString());
                 Console.WriteLine("Obsah zpravy: " + request);
