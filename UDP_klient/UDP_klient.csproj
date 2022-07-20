@@ -33,6 +33,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Open.Nat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=f22a6a4582336c76, processorArchitecture=MSIL">
+      <HintPath>..\packages\Open.NAT.2.1.0.0\lib\net45\Open.Nat.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -49,6 +52,7 @@
   <ItemGroup>
     <None Include="App.config" />
     <None Include="bin\Debug\UDP_klient.exe.config" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="bin\Debug\UDP_klient.exe" />
