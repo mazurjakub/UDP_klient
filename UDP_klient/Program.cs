@@ -16,6 +16,7 @@ namespace UDP_klient
         public static UdpClient server = new UdpClient();
         //public static UdpClient connectedClient = new UdpClient();
         public static TcpClient connectedClient;
+        public static TcpListener listener = new TcpListener(IPAddress.Any, 1602);
 
 
         public static Socket socket = new Socket(AddressFamily.Unspecified, SocketType.Dgram, ProtocolType.Udp);
@@ -41,7 +42,7 @@ namespace UDP_klient
             string key = null;
             string message = null;
 
-            
+
         server:
             //server.Connect(ServerEndPoint);
             while (true)
@@ -80,7 +81,7 @@ namespace UDP_klient
             }
 
         client:
-            
+
             Thread.Sleep(100);
             /*IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Parse(secondClientIP), 53);
 
@@ -92,13 +93,16 @@ namespace UDP_klient
             hasSecondClient = false;
             /*Thread thread = new Thread(() => ReceiveDataFromEP(clientEndPoint, connectedClient));
             thread.Start();*/
-            
+
 
             _ = OpenPort();
 
             Thread.Sleep(100);
 
+            //listener.Start();
             connectedClient = new TcpClient(secondClientIP, 1602);
+            //connectedClient = listener.AcceptTcpClient();
+
 
             Thread thread = new Thread(() => ReceiveDataFromClient());
             thread.Start();
@@ -114,7 +118,7 @@ namespace UDP_klient
                     Thread.Sleep(100);
 
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     Console.WriteLine(ex.Message);
                 }
@@ -123,6 +127,9 @@ namespace UDP_klient
 
             }
         }
+
+        
+
 
         //Sends string to connected server (ServerEndPoint)
         public static void SendDataToServer(string dataToSend, UdpClient receiver)
