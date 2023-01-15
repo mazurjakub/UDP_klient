@@ -12,14 +12,10 @@ namespace UDP_klient
 {
     public class Program
     {
-        public static IPEndPoint ServerEndPoint = new IPEndPoint(IPAddress.Parse("3.143.208.24"), 1700);
-        public static UdpClient server = new UdpClient();
-        //public static UdpClient connectedClient = new UdpClient();
-        public static TcpClient connectedClient;
-        public static TcpListener listener = new TcpListener(IPAddress.Any, 1602);
+        public static IPEndPoint serverEndPoint = new IPEndPoint(IPAddress.Parse("13.58.62.170"), 1700);
+        public static IPEndPoint recieveFrom = new IPEndPoint(IPAddress.Any, 0);
 
-
-        public static Socket socket = new Socket(AddressFamily.Unspecified, SocketType.Dgram, ProtocolType.Udp);
+        public static UdpClient client = new UdpClient();
 
         public static bool hasSecondClient = false;
         public static string secondClientIP;
@@ -28,117 +24,115 @@ namespace UDP_klient
 
         static void Main(string[] args)
         {
-            server.AllowNatTraversal(true);
-            server.ExclusiveAddressUse = false;
-            server.Client.SetIPProtectionLevel(IPProtectionLevel.Unrestricted);
-            server.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            server.Connect(ServerEndPoint);
+            try
+            {
+                client.AllowNatTraversal(true);
+                client.ExclusiveAddressUse = false;
+                client.Client.SetIPProtectionLevel(IPProtectionLevel.Unrestricted);
+                client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                client.Client.Connect(serverEndPoint);
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine("Unable to connect to the server. Exception: " + e.Message);
+                return;
+            }
 
             //Start recieving data from server
-            Thread ThreadListen = new Thread(() => ReceiveDataFromEP(ServerEndPoint, server));
-            ThreadListen.IsBackground = true;
-            ThreadListen.Start();
+            Thread serverThread = new Thread(() => ReceiveDataFromEP(serverEndPoint));
+            serverThread.IsBackground = true;
+            serverThread.Start();
 
             string key = null;
             string message = null;
 
 
-        server:
-            //server.Connect(ServerEndPoint);
-            while (true)
+            
+            while (!hasSecondClient)
             {
                 Thread.Sleep(100);
-                if (hasSecondClient) goto client;
                 // send data
                 if (key == null)
                 {
-                reading:
                     Console.WriteLine("Zadej klic v hodnotach od 1-999 pro pripojeni ke klientovi");
                     key = Console.ReadLine();
 
-                    if (!IsDigitsOnly(key))
+                    if (!IsDigitsOnly(key) || key.Length == 0)
                     {
-                        Console.WriteLine("Klic musi obsahovat pouze cislice");
-                        goto reading;
+                        Console.WriteLine("Klic musi obsahovat pouze cislice\n");
+                        key = null;
+                        continue;
                     }
 
                     if (int.Parse(key) < 1 || int.Parse(key) > 999)
                     {
                         Console.WriteLine("Zadana spatna hodnota klice");
-                        goto reading;
+                        key = null;
+                        continue;
                     }
-                    SendDataToServer(key, server);
+                    SendDataToEP(key, serverEndPoint);
                     Console.WriteLine("\n");
                 }
                 else
                 {
                     Console.WriteLine("Pro vymazani ze serveru zadejte '0'\n");
                     key = Console.ReadLine();
-                    SendDataToServer(key, server);
+                    SendDataToEP(key, serverEndPoint);
                     Console.WriteLine("\n");
                 }
 
             }
 
-        client:
 
             Thread.Sleep(100);
-            /*IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Parse(secondClientIP), 53);
+            //hasSecondClient = false;
 
-            connectedClient.AllowNatTraversal(true);
-            connectedClient.Client.SetIPProtectionLevel(IPProtectionLevel.Unrestricted);
-            connectedClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            connectedClient.Connect(clientEndPoint);*/
+            IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Parse(secondClientIP), int.Parse(secondClientPort));
+            client.Client.Connect(clientEndPoint);
 
-            hasSecondClient = false;
-            /*Thread thread = new Thread(() => ReceiveDataFromEP(clientEndPoint, connectedClient));
-            thread.Start();*/
+            serverThread.Join();
 
+            Thread clientThread = new Thread(() => ReceiveDataFromEP(recieveFrom));
+            clientThread.Start();
 
-            _ = OpenPort();
-
-            Thread.Sleep(100);
-
-            //listener.Start();
-            connectedClient = new TcpClient(secondClientIP, 1602);
-            //connectedClient = listener.AcceptTcpClient();
-
-
-            Thread thread = new Thread(() => ReceiveDataFromClient());
-            thread.Start();
-
-            while (true)
+            while (client.Client.Connected)
             {
                 try
                 {
+                    Console.WriteLine("Zadej zpravu k odeslani");
+                    message = Console.ReadLine();
 
-                    //message = Console.ReadLine();
-                    StreamReader reader = new StreamReader(connectedClient.GetStream());
-                    SendDataToClient("Hello");
+                    SendDataToEP(message, clientEndPoint);
                     Thread.Sleep(100);
 
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine(ex.Message);
+                    hasSecondClient = false;
+                    break;
                 }
-
-
-
             }
         }
 
         
 
 
-        //Sends string to connected server (ServerEndPoint)
-        public static void SendDataToServer(string dataToSend, UdpClient receiver)
+        //Sends string to given endpoint
+        public static void SendDataToEP(string dataToSend, IPEndPoint ep)
         {
             try
             {
-                int byteCount = Encoding.ASCII.GetByteCount(dataToSend);
-                byte[] sendData = Encoding.ASCII.GetBytes(dataToSend);
-                receiver.Send(sendData, byteCount);
+                if(dataToSend.Length > 0)
+                {
+                    int byteCount = Encoding.ASCII.GetByteCount(dataToSend);
+                    byte[] sendData = Encoding.ASCII.GetBytes(dataToSend);
+                    client.Send(sendData, byteCount, ep);
+                }
+                else
+                {
+                    Console.WriteLine("Nezadal jste zadnou zpravu\n");
+                }
             }
             catch(Exception e)
             {
@@ -148,79 +142,44 @@ namespace UDP_klient
         }
 
 
-        public static void SendDataToClient(string dataToSend)
+        public static void ReceiveDataFromEP(IPEndPoint endPoint)
         {
-            try
+            while (true)
             {
-                NetworkStream stream = connectedClient.GetStream();
-                StreamWriter writer = new StreamWriter(connectedClient.GetStream());
-                int byteCount = Encoding.ASCII.GetByteCount(dataToSend);
-                byte[] sendData = Encoding.ASCII.GetBytes(dataToSend);
-                writer.WriteLine(dataToSend);
-                writer.Flush();
-
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Error: " + e.Message);
-            }
-        }
-
-        public static void ReceiveDataFromClient()
-        {
-            NetworkStream stream = connectedClient.GetStream();
-            try
-            {
-                byte[] buffer = new byte[1024];
-                stream.Read(buffer, 0, buffer.Length);
-                int recv = 0;
-                foreach (byte b in buffer)
+                if (client.Client.Connected)
                 {
-                    if (b != 0)
-                    {
-                        recv++;
-                    }
-                }
-                string request = Encoding.UTF8.GetString(buffer, 0, recv);
-                Console.WriteLine("request received: " + request);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Something went wrong.");
-            }
+                    byte[] receivedData;
 
-        }
+                    Console.WriteLine("Posloucham na: " + endPoint.Address.ToString() + " Port: " + endPoint.Port.ToString());
+                    receivedData = client.Receive(ref endPoint);
 
-        public static void ReceiveDataFromEP(IPEndPoint endPoint, UdpClient sender)
-        {
-            while (!hasSecondClient)
-            {
-                byte[] receivedData;
+                    string request = Encoding.UTF8.GetString(receivedData);
 
-                Console.WriteLine("Posloucham na: " + endPoint.Address.ToString() + " Port: " + endPoint.Port.ToString());
-                receivedData = sender.Receive(ref endPoint);
-
-                string request = Encoding.UTF8.GetString(receivedData);
-
-
-                Console.WriteLine("Prichozi zprava z IP: " + endPoint.Address.ToString() + " Port: " + endPoint.Port.ToString());
-                Console.WriteLine("Obsah zpravy: " + request);
-                Console.WriteLine("\n");
-
-                // If server sends IP address, initiate connection to that IP
-                if (IsIPAddress(request) && !hasSecondClient)
-                {
-                    secondClientIP = request;
-                    hasSecondClient = true;
-                    receivedData = null;
-
-                    receivedData = server.Receive(ref endPoint);
-                    request = Encoding.UTF8.GetString(receivedData);
 
                     Console.WriteLine("Prichozi zprava z IP: " + endPoint.Address.ToString() + " Port: " + endPoint.Port.ToString());
                     Console.WriteLine("Obsah zpravy: " + request);
+                    Console.WriteLine("\n");
 
-                    secondClientPort = request;
+                    // If server sends IP address, initiate connection to that IP
+                    if (IsIPAddress(request) && !hasSecondClient)
+                    {
+                        secondClientIP = request;
+                        hasSecondClient = true;
+                        receivedData = null;
+
+                        receivedData = client.Receive(ref endPoint);
+                        request = Encoding.UTF8.GetString(receivedData);
+
+                        Console.WriteLine("Prichozi zprava z IP: " + endPoint.Address.ToString() + " Port: " + endPoint.Port.ToString());
+                        Console.WriteLine("Obsah zpravy: " + request);
+
+                        secondClientPort = request;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("The client is not connected to a remote endpoint");
+                    return;
                 }
             }
         }
@@ -241,10 +200,6 @@ namespace UDP_klient
             
             
         }
-
-
-
-
 
         // From https://stackoverflow.com/questions/7461080/fastest-way-to-check-if-string-contains-only-digits-in-c-sharp
         public static bool IsDigitsOnly(string str)
@@ -301,6 +256,7 @@ namespace UDP_klient
             }
             throw new Exception("Failed to get external IP");
         }
+
         private static string GetExternalIpWithTimeout(int timeoutMillis)
         {
             string[] sites = new string[] {
