@@ -12,7 +12,7 @@ namespace UDP_klient
 {
     public class Program
     {
-        public static IPEndPoint serverEndPoint = new IPEndPoint(IPAddress.Parse("13.58.62.170"), 1700);
+        public static IPEndPoint serverEndPoint = new IPEndPoint(IPAddress.Parse("18.118.215.181"), 1700);
         public static IPEndPoint recieveFrom = new IPEndPoint(IPAddress.Any, 0);
 
         public static UdpClient client = new UdpClient();
@@ -31,6 +31,8 @@ namespace UDP_klient
                 client.Client.SetIPProtectionLevel(IPProtectionLevel.Unrestricted);
                 client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                 client.Client.Connect(serverEndPoint);
+                
+                
             }
             catch(Exception e)
             {
@@ -50,7 +52,7 @@ namespace UDP_klient
             
             while (!hasSecondClient)
             {
-                Thread.Sleep(100);
+                Thread.Sleep(300);
                 // send data
                 if (key == null)
                 {
@@ -72,6 +74,7 @@ namespace UDP_klient
                     }
                     SendDataToEP(key, serverEndPoint);
                     Console.WriteLine("\n");
+                    Thread.Sleep(300);
                 }
                 else
                 {
@@ -83,22 +86,19 @@ namespace UDP_klient
 
             }
 
-
-            Thread.Sleep(100);
             //hasSecondClient = false;
+            serverThread.Abort();
+            
 
             IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Parse(secondClientIP), int.Parse(secondClientPort));
             client.Client.Connect(clientEndPoint);
 
-            serverThread.Join();
-
-            Thread clientThread = new Thread(() => ReceiveDataFromEP(recieveFrom));
+            Thread clientThread = new Thread(() => ReceiveDataFromEP(clientEndPoint));
             clientThread.Start();
-
             while (client.Client.Connected)
             {
                 try
-                {
+                {  
                     Console.WriteLine("Zadej zpravu k odeslani");
                     message = Console.ReadLine();
 
